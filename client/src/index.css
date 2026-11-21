@@ -1,0 +1,19 @@
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: #ffffff;
+}
+
+button, input {
+  font: inherit;
+}

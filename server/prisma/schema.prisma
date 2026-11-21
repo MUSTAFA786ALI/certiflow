@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  TRAINING_CENTRE
+  DISTRICT_OFFICER
+  QUALITY_OFFICER
+  STATE_OFFICER
+}
+
+enum BatchStatus {
+  DRAFT
+  SUBMITTED
+  DISTRICT_REVIEW
+  QUALITY_REVIEW
+  STATE_REVIEW
+  RETURNED
+  REJECTED
+  ISSUED
+}
+
+enum ApprovalDecision {
+  APPROVED
+  RETURNED
+  REJECTED
+}
+
+enum CertificateStatus {
+  ACTIVE
+  CANCELLED
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  district     String?
+  centreName   String?
+  createdAt    DateTime @default(now())
+
+  batches   Batch[]    @relation("CentreBatches")
+  approvals Approval[]
+  auditLogs AuditLog[]
+}
+
+model Batch {
+  id                 String      @id @default(cuid())
+  batchNumber        String      @unique
+  centreId           String
+  district           String
+  status             BatchStatus @default(DRAFT)
+  reviewCycle        Int         @default(1)
+  needsQualityReview Boolean     @default(false)
+  submittedAt        DateTime?
+  pendingSince       DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  centre       User          @relation("CentreBatches", fields: [centreId], references: [id])
+  candidates   Candidate[]
+  approvals    Approval[]
+  certificates Certificate[]
+}
+
+model Candidate {
+  id         String   @id @default(cuid())
+  batchId    String
+  fullName   String
+  phone      String
+  email      String?
+  courseName String
+  createdAt  DateTime @default(now())
+
+  batch       Batch        @relation(fields: [batchId], references: [id])
+  certificate Certificate?
+}
+
+model Approval {
+  id          String           @id @default(cuid())
+  batchId     String
+  officerId   String
+  reviewCycle Int
+  decision    ApprovalDecision
+  reason      String?
+  createdAt   DateTime         @default(now())
+
+  batch   Batch @relation(fields: [batchId], references: [id])
+  officer User  @relation(fields: [officerId], references: [id])
+
+  @@unique([batchId, officerId, reviewCycle])
+}
+
+model Certificate {
+  id                String            @id @default(cuid())
+  batchId           String
+  candidateId       String            @unique
+  certificateNumber String            @unique
+  verificationToken String            @unique
+  status            CertificateStatus @default(ACTIVE)
+  issuedAt          DateTime          @default(now())
+  cancelledAt       DateTime?
+
+  batch     Batch     @relation(fields: [batchId], references: [id])
+  candidate Candidate @relation(fields: [candidateId], references: [id])
+  delivery  Delivery?
+}
+
+model Delivery {
+  id            String         @id @default(cuid())
+  certificateId String         @unique
+  status        DeliveryStatus @default(PENDING)
+  attempts      Int            @default(0)
+  lastError     String?
+  sentAt        DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  certificate Certificate @relation(fields: [certificateId], references: [id])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+}
